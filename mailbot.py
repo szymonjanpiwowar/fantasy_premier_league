@@ -305,20 +305,18 @@ def send_reminder_email(gameWeek, distribution_list, days_to_deadline):
             smtp.login(fpl_username, fpl_password)
             smtp.sendmail(fpl_username, email_address, mail.as_string())
             smtp.quit()
-            print("Email sent!")
 
 
 def main():
     from classic_league import BootStrap
     distribution_list = get_distribution_list()
-    #BootStrap().get_players()
     if not distribution_list:
         print("No one to send emails to...")
         exit(0)
     check_unsubscribed(distribution_list)
     update, days_to_deadline = check_update()
     upcoming_gw = BootStrap().get_current_gameweek() + 1
-    if True:
+    if update:
         send_reminder_email(upcoming_gw, distribution_list, days_to_deadline)
     else:
         exit(0)
