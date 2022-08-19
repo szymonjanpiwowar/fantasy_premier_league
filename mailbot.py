@@ -26,7 +26,6 @@ def get_distribution_list():
                 distList.append(mail.split()[0].strip())
     return distList
 
-
 def gmail_authenticate():
     import pickle
     from os import path
@@ -51,7 +50,6 @@ def gmail_authenticate():
         with open("token.pickle", "wb") as token:
             pickle.dump(creds, token)
     return build('gmail', 'v1', credentials=creds)
-
 
 def search_messages(service, query):
     result = service.users().messages().list(userId='me', q=query).execute()
@@ -95,9 +93,6 @@ def parse_parts(service, parts, folder_name, message):
                 if not filename:
                     filename = "index.html"
                 filepath = path.join(folder_name, filename)
-           #     print("Saving HTML to", filepath)
-           #     with open(filepath, "wb") as f:
-            #        f.write(urlsafe_b64decode(data))
             else:
                 # attachment other than a plain text or HTML
                 for part_header in part_headers:
@@ -231,7 +226,7 @@ def check_unsubscribed(distribution_list):
     # Now, delete messages, so that if subscribe was sent through, then user is added again.
     delete_messages(service, query)
 
-def check_update():
+def check_update(bootstrap, fixtures):
     """
         A function that will be triggered to distribute emails to all of the league
         participants.
@@ -239,20 +234,88 @@ def check_update():
         The fucntion will take todays date and compare it to the
     """
     from classic_league import BootStrap
-    days_to_deadline = BootStrap().get_days_to_deadline()
-    if days_to_deadline <= 1.0:
-        return True, days_to_deadline
-    else:
-        return False, days_to_deadline
+    up_file = 'mail_data/.update'
+    days_to_deadline = bootstrap.get_days_to_deadline()
 
+    current_gw = bootstrap.get_current_gameweek()
+    upcoming_gw = current_gw + 1
+    time_to_final_gw_fixture = fixtures.get_time_to_final_fixture_of_gameweek(upcoming_gw)
+    send_reminder, send_newsletter = False, False
+    fmap = {'False': 0, 'True': 1}
+    with open('mail_data/.update', 'r') as up:
+        for row in up.readlines():
+            if "GAMEWEEK_{}".format(upcoming_gw) in row:
+                print(row)
+                old_row = row
+                row = row.split()
+                news_up, reminder_up = bool(fmap[row[1]]), bool(fmap[row[2]])
+    # update team reminder
+    if days_to_deadline <= 1.1 and not reminder_up:
+        send_reminder = True
+    if time_to_final_gw_fixture < 0.0 and not news_up:
+        send_newsletter = True
+    # update the ... .update file
+    new_row = "GAMEWEEK_{}\t{}\t{}\n".format(upcoming_gw, str(send_newsletter), str(send_reminder))
+    upf = open(up_file, 'rt').read().replace(old_row, new_row)
+    with open(up_file, 'wt') as up:
+        up.write(upf)
+    return send_reminder, send_newsletter, days_to_deadline, time_to_final_gw_fixture
 
-def read_email_body():
+def read_newsletter_email_body(league, bootstrap, players):
+    """
+        Reads data from ./mail_data/body.txt
+    """
+    from datetime import datetime
+    # Obtain manager related data and format!
+    no_managers = league.managers.no_managers
+    table_of_managers = league.managers.create_manager_table(bootstrap).to_html(index=False,
+                                                                                justify='center',
+                                                                                )
+    table_of_managers = table_of_managers.replace("[", "")
+    table_of_managers = table_of_managers.replace("]", "")
+    table_of_managers = table_of_managers.replace(">False, 0", " bgcolor=\"#337580\">")
+    table_of_managers = table_of_managers.replace(">True, ", " bgcolor=\"#bc909a\"> Used on GW #")
+    # Top 5 players on each positon, based on historic data...
+    top5_gks = players.get_player_data('Goalkeeper', 'cost_to_points', False, 5).to_html(index=False,
+                                                                                justify='center',
+                                                                                float_format='{:.2f}'.format
+                                                                                )
+    top5_defs = players.get_player_data('Defender', 'cost_to_points', False, 5).to_html(index=False,
+                                                                                justify='center',
+                                                                                float_format='{:.2f}'.format
+                                                                                )
+    top5_mids = players.get_player_data('Midfielder', 'cost_to_points', False, 5).to_html(index=False,
+                                                                                justify='center',
+                                                                                float_format='{:.2f}'.format
+                                                                                )
+    top5_frw = players.get_player_data('Forward', 'cost_to_points', False, 5).to_html(index=False,
+                                                                                justify='center',
+                                                                                float_format='{:.2f}'.format
+                                                                                )
+    mail_body = ''
+    with open(path.join(getcwd(), 'mail_data', 'newsletter_body.txt'), 'r') as bod:
+        for line in bod.readlines():
+            if "@players_table" in line:
+                line = line.replace("@players_table", table_of_managers)
+            if "@gk_rec" in line:
+                line = line.replace("@gk_rec", top5_gks)
+            if "@def_rec" in line:
+                line = line.replace("@def_rec", top5_defs)
+            if "@mid_rec" in line:
+                line = line.replace("@mid_rec", top5_mids)
+            if "@for_rec" in line:
+                line = line.replace("@for_rec", top5_frw)
+            mail_body += line + "\n"
+    return mail_body
+
+def read_email_body(league, bootstrap):
     """
         Reads data from ./mail_data/body.txt
     """
     from datetime import datetime
     to_league_start = datetime(2022, 8, 20).timestamp() - datetime.today().timestamp()
     to_league_start = round(to_league_start/86400.0, 0)
+    no_managers = league.managers.no_managers
     mail_body = ""
     with open(path.join(getcwd(), 'mail_data', 'body.txt'), 'r') as bod:
         for line in bod.readlines():
@@ -262,26 +325,24 @@ def read_email_body():
                 else:
                     inline = "The league has now started! Good Luck everyone!"
                 line = line.replace("@league_msg", inline)
+            if "@registered" in line:
+                line = line.replace("@registered", str(no_managers))
             mail_body += line + "\n"
     return mail_body
 
-
-def send_reminder_email(gameWeek, distribution_list, days_to_deadline):
+def send_reminder_email(distribution_list, subject, html_body, files_attached):
     from pathlib import Path
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     from email.mime.base import MIMEBase
     from email import encoders
-    hours_to_deadline = round(days_to_deadline*24.0, 0)
     fpl_username = r'jacobsfantasypremierleague@gmail.com'
     fpl_password = environ.get('FPL_GM_PASS')
-    files = ['./mail_data/images/Banner.png']
+    files = files_attached
     if fpl_password is None:
         raise OSError
     else:
         print("Logging in.")
-    html_body = read_email_body()
-    subject = "[REMINDER - ONLY {} h REMAIN] Update your team for Gameweek #{}!".format(hours_to_deadline, gameWeek)
     mail = MIMEMultipart('alternative')
     mail['From'] = fpl_username
     mail['Subject'] = subject
@@ -306,22 +367,41 @@ def send_reminder_email(gameWeek, distribution_list, days_to_deadline):
             smtp.sendmail(fpl_username, email_address, mail.as_string())
             smtp.quit()
 
-
 def main():
     from classic_league import BootStrap
+    from classic_league import ClassicLeague
+    from classic_league import Players
+    from classic_league import Fixtures
+    league = ClassicLeague(1026637, 'Jacobs FPL S4')
+    bootstrap = BootStrap()
+    fixtures = Fixtures(bootstrap)
     distribution_list = get_distribution_list()
     if not distribution_list:
         print("No one to send emails to...")
         exit(0)
     check_unsubscribed(distribution_list)
-    update, days_to_deadline = check_update()
-    upcoming_gw = BootStrap().get_current_gameweek() + 1
-    if update:
-        send_reminder_email(upcoming_gw, distribution_list, days_to_deadline)
+    send_reminder, send_newsletter, days_to_deadline, days_to_final_game = check_update(bootstrap, fixtures)
+    current_gw = BootStrap().get_current_gameweek()
+    upcoming_gw = current_gw + 1
+    hours_to_deadline = round(days_to_deadline * 24.0, 0)
+    # Check if update email should be sent out to the managers
+    if send_reminder:
+        reminder_email_body = read_email_body(league, bootstrap)
+        subject = "REMINDER - Only {} h Remain! Update your team for the Gameweek #{}!".format(hours_to_deadline, upcoming_gw)
+        attachments = ['./mail_data/images/Banner.png']
+        send_reminder_email(distribution_list, subject, reminder_email_body, attachments)
     else:
-        exit(0)
-
+        print("It's not yet time to sent reminder email! Days to deadline: {}.".format(days_to_deadline))
+    # Check if newsletter should be sent to the managers
+    if send_newsletter:
+        players = Players(bootstrap)
+        players.load_players_and_calculate_xp(fixtures.upcoming_fixture_data)
+        newsletter_body = read_newsletter_email_body(league, bootstrap, players)
+        subject = "Newsletter for Jacobs FPL Gameweek #{}".format(current_gw)
+        attachments = ['./mail_data/images/Newsletter_Banner.png']
+        send_reminder_email(distribution_list, subject, newsletter_body, attachments)
+    else:
+        print("It's not yet time to sent newsletter email! Days to/since final GW fixture: {}".format(days_to_final_game/86400.0))
 
 if __name__ == "__main__":
     main()
-

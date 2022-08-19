@@ -105,7 +105,6 @@ width: 100vw !important;
 }
 </style>
 </head>
-
 <body class="em_body" style="margin:0px; padding:0px;" bgcolor="#efefef">
 <table class="em_full_wrap" valign="top" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#efefef" align="center">
 <tbody><tr>
@@ -143,6 +142,12 @@ width: 100vw !important;
 </tr>
 <tr>
 <td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">@league_msg</td>
+</tr>
+<tr>
+<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">Managers Registered: <span style="color: #00ff00">@registered</span></td>
+</tr>
+<tr>
+<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">Invite your friends at work to join! Name: <span style="color: #00ff00">Jacobs FPL S4</span>, Code: <span style="color: #00ff00">wmsgqj </span></td>
 </tr>
 <tr>
 <td class="em_h20" style="font-size:0px; line-height:0px; height:10px;" height="10">&nbsp;</td>
