@@ -4,27 +4,50 @@ import sys
 import smtplib
 import ssl
 import aiohttp
-from os import environ
+from os import environ, getcwd, path
 from email.message import EmailMessage
 import requests, json, datetime
-import json
 from os import getcwd, path
-import rsa
 
-def get_distribution_list():
+def overwrite_json(json_path, jsonObject):
+    import json
+    json_file = open(json_path, 'w')
+    json.dump(jsonObject, json_file)
+    json_file.close()
+
+def read_from_json_file(json_path):
+    data = []
+    if not path.exists(json_path):
+        return []
+    else:
+        with open(json_path, 'r') as f:
+            data = json.loads(f.read())
+    return data
+
+def json_exrtract(jsonObject, keys):
     """
-        Reads from ./mail_data/.distribution_list and produces list of addresses that the
-        email should be sent off to. Reads only the first email in entry, ignores the rest.
+
+    :param jsonObject: A list of dictionaries
+    :param key: A data field to be extracted from the jsonObject
+    :return: a list of found items
     """
-    from os import getcwd, path
-    dpath = path.join(getcwd(), 'mail_data', '.distribution_list')
-    distList = []
-    with open(dpath, 'r') as dl:
-        for mail in dl.readlines():
-            if '@' in mail:
-                # add only one per line
-                distList.append(mail.split()[0].strip())
-    return distList
+    found = []
+    for entry in jsonObject:
+        try:
+            found_entry = []
+            for key in keys:
+                found_entry.append(entry[key])
+            if len(found_entry) == 1:
+                found.append(found_entry[0])
+            else:
+                found.append(found_entry)
+        except KeyError:
+            print("ERROR: Key is not in the JsonObject. Try different key.")
+            return []
+    return found
+
+def update_json_file(file, jsonObject):
+    pass
 
 def gmail_authenticate():
     import pickle
@@ -209,56 +232,62 @@ def check_unsubscribed(distribution_list):
     query = r'in:inbox Unsubscribe'
     service = gmail_authenticate()
     results = search_messages(service, query)
+    managers_unsubscribed = []
     if not results:
         print("No unsubscribe emails found!")
-        return
+        return []
     for msg in results:
         try:
             from_email = read_message(service, msg)
             if '@jacobs' in from_email:
                 from_email = from_email.lower()
-            distribution_list.remove(from_email)
+            managers_unsubscribed.append(from_email)
         except ValueError:
             print('User {} not in distribution list.'.format(from_email))
-    with open(path.join(getcwd(), 'mail_data', '.distribution_list'), 'w') as dsl:
-        for email_address in distribution_list:
-            dsl.write(email_address + "\n")
     # Now, delete messages, so that if subscribe was sent through, then user is added again.
     delete_messages(service, query)
+    return managers_unsubscribed
 
-def check_update(bootstrap, fixtures):
+def check_update(bootstrap, fixtures, jsonObject):
     """
         A function that will be triggered to distribute emails to all of the league
         participants.
 
         The fucntion will take todays date and compare it to the
     """
-    from classic_league import BootStrap
-    up_file = 'mail_data/.update'
+    import json
+    from datetime import datetime
+    up_file = 'mail_data/.league_data.json'
+    gameweek_data = jsonObject['league_data'][1]['gameweek_info']
     days_to_deadline = bootstrap.get_days_to_deadline()
-
     current_gw = bootstrap.get_current_gameweek()
     upcoming_gw = current_gw + 1
-    time_to_final_gw_fixture = fixtures.get_time_to_final_fixture_of_gameweek(upcoming_gw)
+    time_to_final_gw_fixture = fixtures.get_time_to_final_fixture_of_gameweek(current_gw)
+    has_reminded, has_newscast = False, False
     send_reminder, send_newsletter = False, False
-    fmap = {'False': 0, 'True': 1}
-    with open('mail_data/.update', 'r') as up:
-        for row in up.readlines():
-            if "GAMEWEEK_{}".format(upcoming_gw) in row:
-                print(row)
-                old_row = row
-                row = row.split()
-                news_up, reminder_up = bool(fmap[row[1]]), bool(fmap[row[2]])
+    # extract info on whether, or not the reminder has been sent out to the
+    # users for the upcoming gamweek.
+    # Also, extract the data about the current gameweek reminder for newsletter
+    for gw_entry in gameweek_data:
+        # for newsletter
+        if gw_entry['gameweek'] == str(current_gw):
+            if gw_entry['newsletter_sent'] != 'None':
+                has_newscast = True
+        if gw_entry['gameweek'] == str(upcoming_gw):
+            if gw_entry['reminder_sent'] != 'None':
+                has_reminded = True
     # update team reminder
-    if days_to_deadline <= 1.1 and not reminder_up:
+    if days_to_deadline <= 1.0 and not has_reminded:
         send_reminder = True
-    if time_to_final_gw_fixture < 0.0 and not news_up:
+        upgw_index = upcoming_gw + 1
+        jsonObject['league_data'][1]['gameweek_info'][upgw_index]['reminder_sent'] \
+            = datetime.now().strftime('%d/%M/%YT%H:%M')
+    # update newsletter reminder
+    if time_to_final_gw_fixture < 0.0 and not has_newscast:
         send_newsletter = True
-    # update the ... .update file
-    new_row = "GAMEWEEK_{}\t{}\t{}\n".format(upcoming_gw, str(send_newsletter), str(send_reminder))
-    upf = open(up_file, 'rt').read().replace(old_row, new_row)
-    with open(up_file, 'wt') as up:
-        up.write(upf)
+        crgw_index = current_gw + 1
+        jsonObject['league_data'][1]['gameweek_info'][crgw_index]['newsletter_sent'] \
+            = datetime.now().strftime('%d/%M/%YT%H:%M')
     return send_reminder, send_newsletter, days_to_deadline, time_to_final_gw_fixture
 
 def read_newsletter_email_body(league, bootstrap, players):
@@ -321,7 +350,7 @@ def read_email_body(league, bootstrap):
         for line in bod.readlines():
             if "@league_msg" in line:
                 if to_league_start > 0:
-                    inline = "The league will start in {0:d} days!".format(int(to_league_start))
+                    inline = "The league will start in {0:d} day(s)!".format(int(to_league_start))
                 else:
                     inline = "The league has now started! Good Luck everyone!"
                 line = line.replace("@league_msg", inline)
@@ -372,17 +401,27 @@ def main():
     from classic_league import ClassicLeague
     from classic_league import Players
     from classic_league import Fixtures
+    from pandas import DataFrame, read_json, json_normalize
+    from datetime import datetime
+    json_path = path.join(getcwd(), 'mail_data/.league_data.json')
+    jsonObject = read_from_json_file(json_path)
+    manager_data = jsonObject['league_data'][0]['manager_data']
+    distribution_list = json_exrtract(manager_data, ['email'])
+    managers_unsubscribed = check_unsubscribed(distribution_list)
+    for unsubscribed_email in managers_unsubscribed:
+        for index, entry in enumerate(manager_data):
+            if entry['email'] == unsubscribed_email:
+                print(index)
+                del jsonObject['league_data'][0]['manager_data'][index]
+                break
     league = ClassicLeague(1026637, 'Jacobs FPL S4')
     bootstrap = BootStrap()
     fixtures = Fixtures(bootstrap)
-    distribution_list = get_distribution_list()
     if not distribution_list:
         print("No one to send emails to...")
+        overwrite_json(json_path, jsonObject)
         exit(0)
-    check_unsubscribed(distribution_list)
-    send_reminder, send_newsletter, days_to_deadline, days_to_final_game = check_update(bootstrap, fixtures)
-    current_gw = BootStrap().get_current_gameweek()
-    upcoming_gw = current_gw + 1
+    send_reminder, send_newsletter, days_to_deadline, days_to_final_game = check_update(bootstrap, fixtures, jsonObject)
     hours_to_deadline = round(days_to_deadline * 24.0, 0)
     # Check if update email should be sent out to the managers
     if send_reminder:
@@ -397,11 +436,11 @@ def main():
         players = Players(bootstrap)
         players.load_players_and_calculate_xp(fixtures.upcoming_fixture_data)
         newsletter_body = read_newsletter_email_body(league, bootstrap, players)
-        subject = "Newsletter for Jacobs FPL Gameweek #{}".format(current_gw)
+        subject = "Newsletter for Jacobs FPL Gameweek #{}".format(bootstrap.get_current_gameweek())
         attachments = ['./mail_data/images/Newsletter_Banner.png']
         send_reminder_email(distribution_list, subject, newsletter_body, attachments)
     else:
         print("It's not yet time to sent newsletter email! Days to/since final GW fixture: {}".format(days_to_final_game/86400.0))
-
+    overwrite_json(json_path, jsonObject)
 if __name__ == "__main__":
     main()
