@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
 class Fixtures:
-    def __init__(self, bootstrap):
-        self.bootstrap = bootstrap
+    def __init__(self, gameweek, team_names):
+        self.teams = team_names
+        self.gameweek = gameweek
         self.__load_upcoming_fixture()
 
     def __load_upcoming_fixture(self):
@@ -10,42 +11,29 @@ class Fixtures:
         import json
         from pandas import DataFrame
         from datetime import datetime
-        url = "https://fantasy.premierleague.com/api/fixtures?event={}" \
-            .format(self.bootstrap.get_current_gameweek() + 1)
+        url = "https://fantasy.premierleague.com/api/fixtures?event={}".format(self.gameweek)
         response = requests.get(url)
         extracted_fixture_data = json.loads(response.content)
-        print(extracted_fixture_data)
-        data, columns = [], ['id', 'FDR']
+        data, columns = [], ['id', 'FDR', 'kick_off_time']
         try:
             for fixture in extracted_fixture_data:
                 diff_h = fixture['team_h_difficulty']
                 diff_a = fixture['team_a_difficulty']
-                data.append([fixture['team_h'], 1.0 / diff_h])
-                data.append([fixture['team_a'], 1.0 / diff_a])
+                data.append([fixture['team_h'], 1.0 / diff_h, datetime.strptime(fixture['kickoff_time'], '%Y-%m-%dT%H:%M:%SZ')])
+                data.append([fixture['team_a'], 1.0 / diff_a, datetime.strptime(fixture['kickoff_time'], '%Y-%m-%dT%H:%M:%SZ')])
             data = DataFrame(data, columns=columns).sort_values(by='id', ascending=True)
-            data['team_name'] = data.id.map(self.bootstrap.get_teams().set_index('id').name)
-            self.upcoming_fixture_data = data
-        except Exception as e:
-            self.upcoming_fixture_data = DataFrame()
+            data['team_name'] = data.id.map(self.teams.set_index('id').name)
+            self.fixture_data = data
 
-    def get_time_to_final_fixture_of_gameweek(self, gameweek):
-        import requests
-        import json
-        from pandas import DataFrame
-        from datetime import datetime
-        url = "https://fantasy.premierleague.com/api/fixtures?event={}" \
-            .format(gameweek)
-        response = requests.get(url)
-        extracted_fixture_data = json.loads(response.content)
-        kick_offs = []
-        columns = ['kick_off_time']
-        try:
-            for fixture in extracted_fixture_data:
-                kick_offs.append(datetime.strptime(fixture['kickoff_time'], '%Y-%m-%dT%H:%M:%SZ'))
-            kick_offs = DataFrame(data=kick_offs, columns=columns).sort_values(by='kick_off_time', ascending=False)
-            return kick_offs['kick_off_time'].iloc[0].timestamp() - datetime.now().timestamp()
         except Exception as e:
-            return datetime(9999, 12, 31).timestamp()
+            self.fixture_data = DataFrame()
+
+    def get_time_to_kickoff(self):
+        from datetime import datetime
+        kick_offs = self.fixture_data.sort_values(by='kick_off_time', ascending=False)
+        return kick_offs['kick_off_time'].iloc[0].timestamp() - datetime.now().timestamp()
+
+
 class Players:
     def __init__(self, bootstrap):
         from pandas import DataFrame
@@ -277,55 +265,63 @@ class Managers:
     def __init__(self):
         self.managers = []
         self.no_managers = len(self.managers)
+        self.top_points = -1
 
     def add_manager(self, manager):
         assert type(manager) is Manager
         self.managers.append(manager)
         self.no_managers += 1
-
-    def __str__(self):
-        # Table -> sort these by rank
-        # print:
-        manStr = ''
-        for manager in self.managers:
-            manStr += "{}\n".format(manager.__str__())
-        return manStr
+        if manager.team_points > self.top_points:
+            self.top_points = manager.team_points
 
     def create_manager_table(self, bootstrap):
         from pandas import DataFrame
         table, row, columns = [], [], []
-        chip_columns_added = False
+        table_columns_added = False
         pl_players = Players(bootstrap).players
         map_chip_name = {'wildcard': 'Wildcard', '3xc': 'Triple Captain',
                          'bboost': 'Bench Boost', 'freehit': 'Free Hit'}
         for manager in self.managers:
-            if not chip_columns_added:
+            if not table_columns_added:
+                columns.append("Rank")
                 columns.append("Name")
                 for chip_header in manager.chips_used.keys():
                     columns.append(map_chip_name[chip_header])
                 columns.append("Points")
+                columns.append("To leader")
                 columns.append("Points Benched")
-                chip_columns_added = True
+                table_columns_added = True
+            manager_crank = manager.league_rank
+            manager_orank = manager.league_last_rank
+            if manager_crank > manager_orank:
+                rank = "{} \u2191".format(manager_crank)
+            elif manager_crank == manager_orank:
+                rank = "{} \u2192".format(manager_crank)
+            else:
+                rank = "{} \u2193".format(manager_crank)
+            row.append(rank)
             row.append(manager.manager_name)
             for chip in manager.chips_used.values():
                 row.append(chip)
             row.append(manager.team_points)
+            distance_to_leader = manager.team_points - self.top_points
+            row.append(distance_to_leader)
             row.append(manager.points_on_bench_in_pastGW)
             table.append(row)
             row = []
-        return DataFrame(table, columns=columns)
+        return DataFrame(table, columns=columns).sort_values(by='Points', ascending=False)
 
 
 class Manager:
-    def __init__(self, id, name, team, league, old):
+    def __init__(self, id, name, team, league, rank, last_rank, points):
         from os import getenv
         self.manager_id = id
         self.manager_name = name
         self.manager_team = team
         self.manager_league = league
-        self.isOld = old
-        self.team_points = 0
-        self.league_rank = 0
+        self.team_points = points
+        self.league_last_rank = last_rank
+        self.league_rank = rank
         self.chips_used = {'wildcard': [False, 0],
                            '3xc': [False, 0],
                            'bboost': [False, 0],
@@ -365,31 +361,31 @@ class Manager:
     def __load_user_picks(self):
         import json
         import requests
-        # in future this should be gameweek = Bootstrap().get_gameweek()
-        picks_url = "https://fantasy.premierleague.com/api/entry/" \
-                    "{}/event/{}/picks/".format(self.manager_id, BootStrap().get_current_gameweek())
-        session = requests.session()
-        picks_data = session.get(picks_url)
-        picks_data = json.loads(picks_data.content)
-        pastGW = BootStrap().get_current_gameweek()
-        currentGW = pastGW + 1
-        for gameWeek in range(1, currentGW + 1, 1):
+        current_GW = BootStrap().get_current_gameweek()
+        upcoming_GW = current_GW + 1
+        # Extract data from all GW about the users!
+        for gameweek in range(1, upcoming_GW, 1):
+            picks_url = "https://fantasy.premierleague.com/api/entry/" \
+                        "{}/event/{}/picks/".format(self.manager_id, gameweek)
+            session = requests.session()
+            picks_data = session.get(picks_url)
+            picks_data = json.loads(picks_data.content)
             # Extract chips data
             try:
                 chip_used = picks_data['active_chip']
                 if chip_used is not None:
                     try:
-                        self.chips_used[chip_used] = [True, gameWeek]
+                        self.chips_used[chip_used] = [True, gameweek]
                     except KeyError:
                         print("The key {} not found!".format(chip_used))
             except KeyError:
-                print("Skipping: The user {} created their team past GW{}".format(self.manager_name, gameWeek))
+                print("Skipping: The user {} created their team past GW{}".format(self.manager_name, gameweek))
                 continue
-            if gameWeek == pastGW:
+            if gameweek == current_GW:
                 self.points_on_bench_in_pastGW = picks_data['entry_history']['points_on_bench']
             # Extract upcoming gameWeek data ...
             # This includes the substitutions made and captain used!
-            elif gameWeek == currentGW:
+            elif gameweek == upcoming_GW:
                 active_subs = picks_data['automatic_subs']
                 for sub in active_subs:
                     self.current_subs.append([sub['element_in'], sub['element_out']])
@@ -424,12 +420,19 @@ class ClassicLeague:
         import requests
         import pandas as pd
 
-        def add_managers(manager_data, old=True):
+        def add_managers(manager_data, new_entry):
             for entry in manager_data:
                 uid = entry['entry']
-                team = entry['entry_name']
-                name = "{} {}".format(entry['player_first_name'], entry['player_last_name'])
-                self.managers.add_manager(Manager(uid, name, team, self.league_name, old))
+                team_name = entry['entry_name']
+                if not new_entry:
+                    name = entry['player_name']
+                    points, rank, last_rank = entry['total'], entry['rank'], entry['last_rank']
+                else:
+                    fist_name = entry['player_first_name']
+                    last_name = entry['player_last_name']
+                    name = "{} {}".format(fist_name, last_name)
+                    points, rank, last_rank = 0, "N/A", "N/A"
+                self.managers.add_manager(Manager(uid, name, team_name, self.league_name, rank, last_rank, points))
 
         # Method starts here ...
         league_url = 'https://fantasy.premierleague.com/' \
@@ -437,11 +440,8 @@ class ClassicLeague:
         session = requests.session()
         ld = session.get(league_url)
         league_data = json.loads(ld.content)
-        #  print(league_data)
         # Now that we have the league data, we need to get all of the data that we need ...
         # 1. New Entries to the league.
-        add_managers(league_data['new_entries']['results'], False)
-
-
-if __name__ == "__main__":
-    cLeague = ClassicLeague(1026637, 'Jacobs FPL S4')
+        add_managers(league_data['new_entries']['results'], True)
+        # 2. Add managers from standings
+        add_managers(league_data['standings']['results'], False)

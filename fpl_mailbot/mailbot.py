@@ -259,7 +259,7 @@ def check_update(bootstrap, fixtures, json_object):
     days_to_deadline = bootstrap.get_days_to_deadline()
     current_gw = bootstrap.get_current_gameweek()
     upcoming_gw = current_gw + 1
-    time_to_final_gw_fixture = fixtures.get_time_to_final_fixture_of_gameweek(current_gw)
+    time_to_final_gw_fixture = fixtures.get_time_to_kickoff()
     has_reminded, has_newscast = False, False
     send_reminder, send_newsletter = False, False
     # extract info on whether, or not the reminder has been sent out to the
@@ -279,8 +279,8 @@ def check_update(bootstrap, fixtures, json_object):
         upgw_index = upcoming_gw + 1
         json_object['league_data'][1]['gameweek_info'][upgw_index]['reminder_sent'] \
             = datetime.now().strftime('%d/%M/%YT%H:%M')
-    # update newsletter reminder
-    if time_to_final_gw_fixture < 0.0 and not has_newscast:
+    # update newsletter reminder - a day after the final fixture of a gameweek.
+    if time_to_final_gw_fixture < -1.0 and not has_newscast:
         send_newsletter = True
         crgw_index = current_gw + 1
         json_object['league_data'][1]['gameweek_info'][crgw_index]['newsletter_sent'] \
@@ -425,15 +425,17 @@ def main():
                 break
     league = ClassicLeague(1026637, 'Jacobs FPL S4')
     bootstrap = BootStrap()
-    fixtures = Fixtures(bootstrap)
+    teams = bootstrap.get_teams()
     current_gw = bootstrap.get_current_gameweek()
     upcoming_gw = current_gw + 1
+    current_fixtures = Fixtures(current_gw, teams)
+    upcoming_fixtures = Fixtures(upcoming_gw, teams)
     if not distribution_list:
         print("No one to send emails to...")
         overwrite_json(json_path, json_object)
         exit(0)
     send_reminder, send_newsletter, days_to_deadline, days_to_final_game = check_update(bootstrap,
-                                                                                        fixtures,
+                                                                                        current_fixtures,
                                                                                         json_object
                                                                                         )
     hours_to_deadline = round(days_to_deadline * 24.0, 0)
@@ -450,7 +452,7 @@ def main():
     # Check if newsletter should be sent to the managers
     if send_newsletter:
         players = Players(bootstrap)
-        players.load_players_and_calculate_xp(fixtures.upcoming_fixture_data)
+        players.load_players_and_calculate_xp(upcoming_fixtures.fixture_data)
         newsletter_body = read_newsletter_email_body(league, bootstrap, players)
         subject = "Newsletter for Jacobs FPL Gameweek #{}".format(bootstrap.get_current_gameweek())
         attachments = ['./mail_data/images/Newsletter_Banner.png']
