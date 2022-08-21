@@ -290,7 +290,7 @@ def check_update(bootstrap, fixtures, json_object):
 
 def read_newsletter_email_body(league, bootstrap, players):
     """
-        Reads data from ./mail_data/body.txt
+        Reads data from ./mail_data/newsletter_body.txt
     """
     from os import getcwd, path
     # Obtain manager related data and format!
@@ -345,7 +345,7 @@ def read_newsletter_email_body(league, bootstrap, players):
 
 def read_email_body(league):
     """
-        Reads data from ./mail_data/body.txt
+        Reads data from ./mail_data/reminder_body.txt
     """
     from datetime import datetime
     from os import getcwd, path
@@ -353,7 +353,7 @@ def read_email_body(league):
     to_league_start = round(to_league_start / 86400.0, 0)
     no_managers = league.managers.no_managers
     mail_body = ""
-    with open(path.join(getcwd(), 'mail_data', 'body.txt'), 'r') as bod:
+    with open(path.join(getcwd(), 'mail_data', 'reminder_body.txt'), 'r') as bod:
         for line in bod.readlines():
             if "@league_msg" in line:
                 if to_league_start > 0:
