@@ -418,7 +418,6 @@ def main():
     manager_data = json_object['league_data'][0]['manager_data']
     distribution_list = json_extract(manager_data, ['email'])
     managers_unsubscribed = check_unsubscribed()
-    exit()
     for unsubscribed_email in managers_unsubscribed:
         for index, entry in enumerate(manager_data):
             if entry['email'] == unsubscribed_email:
