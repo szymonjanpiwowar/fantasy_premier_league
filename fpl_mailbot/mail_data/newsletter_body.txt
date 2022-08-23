@@ -57,7 +57,7 @@
                 color: inherit;
             }
             table.dataframe{
-                font-size: 8pt;
+                font-size: 7.5pt;
                 text-align: center;
                 font-family: Arial;
                 color:white;
@@ -77,7 +77,6 @@
                 border-collapse: collapse;
                 padding-top: 5px;
                 padding-bottom: 5px;
-                height: 10px;
                 overflow: hidden;
             }
             table.dataframe th{
@@ -85,6 +84,7 @@
                 border-collapse: collapse;
                 padding-top: 5px;
                 padding-bottom: 5px;
+                height: 15px;
             }
             @media only screen and (min-width:481px) and (max-width:699px) {
                 .em_main_table {
@@ -166,7 +166,7 @@
                                     <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center">
                                         <tbody>
                                             <tr>
-                                                <td valign="top" align="center"><img class="em_img" style="display:block; font-family:Arial, sans-serif; font-size:30px; line-height:34px; color:#000000; max-width:700px;" img src="cid:Newsletter_Banner.png"/ width="700" border="0" height="170"></td>
+                                                <td valign="top" align="center"><img class="em_img" style="display:block; font-family:Arial, sans-serif; font-size:30px; line-height:0px; color:#000000; max-width:700px;" img src="cid:Newsletter_Banner.png"/ width="700" border="0" height="170"></td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -175,10 +175,10 @@
                             <!—//Banner section–>
                             <!—Content Text Section—>
                             <tr>
-                                <td style="padding:18px 18px 10px;" class="em_padd" valign="top" bgcolor="#000000" align="center"><table width="100%" cellspacing="0" cellpadding="0" border="0" align="center">
+                                <td style="padding:12px 12px 10px;" class="em_padd" valign="top" bgcolor="#000000" align="center"><table width="100%" cellspacing="0" cellpadding="0" border="0" align="center">
                                     <tbody>
                                         <tr>
-                                            <td style="font-family:'Open Sans', Arial, sans-serif; font-size:10px; line-height:18px; color:#ffffff; letter-spacing:2px; padding-bottom:3px;" valign="top" align="center">
+                                            <td style="font-family:'Open Sans', Arial, sans-serif; font-size:10px; line-height:15px; color:#ffffff; letter-spacing:2px; padding-bottom:6px;" valign="top" align="center">
                                                 Presented below is the league table, which includes the chips used by the manager so far, as well as the points scored by all of the  the manager
                                                 players that the manager has decided to bench. This data should aid selection of the upcoming team and provide
                                                 some info on your opponents. If you would like more details to be presented here, please
@@ -241,7 +241,7 @@
                                         <tr>
                                              <td>
                                                 <h2 style="text-align:center; color:white;">
-                                                    Presentation of the shield: <span style="color: #337580"> 15.09.2022! </span>
+                                                    Presentation of the shield: <span style="color: #337580"> 31.09.2022! </span>
                                                 </h2>
                                             </td>
                                         </tr>
@@ -254,7 +254,7 @@
                 <!—//Content Text Section–>
                 <!—Footer Section—>
                 <tr>
-                        <td style="font-family:'Open Sans', Arial, sans-serif; font-size:11px; line-height:16px; color:#0d1121; padding-bottom:12px;" valign="top" align="center"><br>© 2022 Gloucester FPL Bot  <br>
+                     <td style="font-family:'Open Sans', Arial, sans-serif; font-size:11px; line-height:16px; color:#0d1121; padding-bottom:12px;" valign="top" align="center"><br>© 2022 Gloucester FPL Bot  <br>
                     If you do not wish to receive any further emails, please <a href="mailto:jacobsfantasypremierleague@gmail.com?subject=Unsubscribe&body=I%20no%20longer%20want%20to%20subscribe." target="_blank" style="text-decoration:none; color:#999999;"><u>unsubscribe</u></a></td>
                 </tr>
             </tbody>

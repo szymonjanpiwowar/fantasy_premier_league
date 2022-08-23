@@ -259,7 +259,7 @@ def check_update(bootstrap, fixtures, json_object):
     days_to_deadline = bootstrap.get_days_to_deadline()
     current_gw = bootstrap.get_current_gameweek()
     upcoming_gw = current_gw + 1
-    time_to_final_gw_fixture = fixtures.get_time_to_kickoff()
+    time_to_final_gw_fixture = fixtures.get_time_to_final_kickoff()/86400.0
     has_reminded, has_newscast = False, False
     send_reminder, send_newsletter = False, False
     # extract info on whether, or not the reminder has been sent out to the
@@ -276,15 +276,15 @@ def check_update(bootstrap, fixtures, json_object):
     # update team reminder
     if days_to_deadline <= 1.0 and not has_reminded:
         send_reminder = True
-        upgw_index = upcoming_gw + 1
+        upgw_index = upcoming_gw - 1
         json_object['league_data'][1]['gameweek_info'][upgw_index]['reminder_sent'] \
-            = datetime.now().strftime('%d/%M/%YT%H:%M')
-    # update newsletter reminder - a day after the final fixture of a gameweek.
-    if time_to_final_gw_fixture < -1.0 and not has_newscast:
+            = datetime.now().strftime('%d/%m/%YT%H:%M')
+    # update newsletter reminder - 1/2 day after the final fixture of a gameweek.
+    if time_to_final_gw_fixture < -0.5 and not has_newscast:
         send_newsletter = True
-        crgw_index = current_gw + 1
+        crgw_index = current_gw - 1
         json_object['league_data'][1]['gameweek_info'][crgw_index]['newsletter_sent'] \
-            = datetime.now().strftime('%d/%M/%YT%H:%M')
+            = datetime.now().strftime('%d/%m/%YT%H:%M')
     return send_reminder, send_newsletter, days_to_deadline, time_to_final_gw_fixture
 
 
@@ -407,7 +407,7 @@ def send_reminder_email(distribution_list, subject, html_body, files_attached):
             smtp.quit()
 
 
-def main():
+def load():
     from classic_league import BootStrap
     from classic_league import ClassicLeague
     from classic_league import Players
@@ -423,7 +423,7 @@ def main():
             if entry['email'] == unsubscribed_email:
                 del json_object['league_data'][0]['manager_data'][index]
                 break
-    league = ClassicLeague(1026637, 'Jacobs FPL S4')
+    league = ""
     bootstrap = BootStrap()
     teams = bootstrap.get_teams()
     current_gw = bootstrap.get_current_gameweek()
@@ -441,6 +441,7 @@ def main():
     hours_to_deadline = round(days_to_deadline * 24.0, 0)
     # Check if update email should be sent out to the managers
     if send_reminder:
+        league = ClassicLeague(1026637, 'Jacobs FPL S4')
         reminder_email_body = read_email_body(league)
         subject = "REMINDER - Only {} h Remain! Update your team for the Gameweek #{}!".format(hours_to_deadline,
                                                                                                upcoming_gw
@@ -451,6 +452,9 @@ def main():
         print("It's not yet time to sent reminder email! Days to deadline: {}.".format(days_to_deadline))
     # Check if newsletter should be sent to the managers
     if send_newsletter:
+        # Only try loading league if it has not been loaded in previous step.
+        if league == "":
+            league = ClassicLeague(1026637, 'Jacobs FPL S4')
         players = Players(bootstrap)
         players.load_players_and_calculate_xp(upcoming_fixtures.fixture_data)
         newsletter_body = read_newsletter_email_body(league, bootstrap, players)
@@ -459,9 +463,18 @@ def main():
         send_reminder_email(distribution_list, subject, newsletter_body, attachments)
     else:
         print("It's not yet time to sent newsletter email! "
-              "Days to/since final GW fixture: {}".format(days_to_final_game / 86400.0))
+              "Days to/since final GW fixture: {}".format(days_to_final_game))
     overwrite_json(json_path, json_object)
+
+def main():
+    from time import sleep
+    sleep_time = (0.5*24.0*60.0*60.0)  # Sleep for 1/2 day
+    while True:
+        # Execute main ...
+        load()
+        sleep(sleep_time)
 
 
 if __name__ == "__main__":
     main()
+

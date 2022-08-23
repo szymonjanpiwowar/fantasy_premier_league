@@ -28,7 +28,8 @@ class Fixtures:
         except Exception as e:
             self.fixture_data = DataFrame()
 
-    def get_time_to_kickoff(self):
+    def get_time_to_final_kickoff(self):
+        """Returns the time to the final kick off in seconds."""
         from datetime import datetime
         kick_offs = self.fixture_data.sort_values(by='kick_off_time', ascending=False)
         return kick_offs['kick_off_time'].iloc[0].timestamp() - datetime.now().timestamp()
