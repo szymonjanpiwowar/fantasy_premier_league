@@ -4,6 +4,7 @@ class Fixtures:
     def __init__(self, gameweek, team_names):
         self.teams = team_names
         self.gameweek = gameweek
+        self.updated = False
         self.__load_upcoming_fixture()
 
     def __load_upcoming_fixture(self):
@@ -14,6 +15,9 @@ class Fixtures:
         url = "https://fantasy.premierleague.com/api/fixtures?event={}".format(self.gameweek)
         response = requests.get(url)
         extracted_fixture_data = json.loads(response.content)
+        if "updated" in extracted_fixture_data:
+            self.updated = True
+            return
         data, columns = [], ['id', 'FDR', 'kick_off_time']
         try:
             for fixture in extracted_fixture_data:
@@ -31,6 +35,9 @@ class Fixtures:
     def get_time_to_final_kickoff(self):
         """Returns the time to the final kick off in seconds."""
         from datetime import datetime
+        # Check if the game is being updated ... if so return something ridiculous
+        if self.updated:
+            return 1E9
         kick_offs = self.fixture_data.sort_values(by='kick_off_time', ascending=False)
         return kick_offs['kick_off_time'].iloc[0].timestamp() - datetime.now().timestamp()
 
@@ -291,15 +298,16 @@ class Managers:
                 columns.append("Points")
                 columns.append("To leader")
                 columns.append("Points Benched")
+                columns.append("Transfer Penalty Points")
                 table_columns_added = True
             manager_crank = manager.league_rank
             manager_orank = manager.league_last_rank
             if manager_crank > manager_orank:
-                rank = "{} \u2191".format(manager_crank)
+                rank = "{} \u2193".format(manager_crank)
             elif manager_crank == manager_orank:
                 rank = "{} \u2192".format(manager_crank)
             else:
-                rank = "{} \u2193".format(manager_crank)
+                rank = "{} \u2191".format(manager_crank)
             row.append(rank)
             row.append(manager.manager_name)
             for chip in manager.chips_used.values():
@@ -308,9 +316,32 @@ class Managers:
             distance_to_leader = manager.team_points - self.top_points
             row.append(distance_to_leader)
             row.append(manager.points_on_bench_in_pastGW)
+            row.append(manager.total_penalty_points)
             table.append(row)
             row = []
         return DataFrame(table, columns=columns).sort_values(by='Points', ascending=False)
+
+    def get_most_improved_managers(self):
+        highest_score_of_gw = -1
+        highest_scoring_managers = []
+        for manager in self.managers:
+            if manager.current_gw_points > highest_score_of_gw:
+                highest_scoring_managers.clear()
+                highest_scoring_managers.append(manager.manager_name)
+                highest_score_of_gw = manager.current_gw_points
+            elif manager.current_gw_points == highest_scoring_managers:
+                highest_scoring_managers.append(manager.manager_name)
+            else:
+                highest_score_of_gw = highest_score_of_gw
+        # turn highest_scoring_managers into string
+        hsm = ''
+        final_index = len(highest_scoring_managers) - 1
+        for index, manager in enumerate(highest_scoring_managers):
+            if index == final_index:
+                hsm += manager
+            else:
+                hsm += "{}, ".format(manager)
+        return hsm
 
 
 class Manager:
@@ -323,12 +354,14 @@ class Manager:
         self.team_points = points
         self.league_last_rank = last_rank
         self.league_rank = rank
+        self.total_penalty_points = 0
         self.chips_used = {'wildcard': [False, 0],
                            '3xc': [False, 0],
                            'bboost': [False, 0],
                            'freehit': [False, 0]
                            }
         self.current_subs = []
+        self.current_gw_points = 0
         self.current_captain = None
         self.points_on_bench_in_pastGW = None
         self.__load_user_data()
@@ -375,28 +408,26 @@ class Manager:
             try:
                 chip_used = picks_data['active_chip']
                 if chip_used is not None:
-                    try:
-                        self.chips_used[chip_used] = [True, gameweek]
-                    except KeyError:
-                        print("The key {} not found!".format(chip_used))
+                    self.chips_used[chip_used] = [True, gameweek]
+                self.total_penalty_points += picks_data['entry_history']['event_transfers_cost']
+                if gameweek == current_GW:
+                    self.current_gw_points = picks_data['entry_history']['points']
+                    self.points_on_bench_in_pastGW = picks_data['entry_history']['points_on_bench']
+                # Extract upcoming gameWeek data ...
+                # This includes the substitutions made and captain used!
+                elif gameweek == upcoming_GW:
+                    active_subs = picks_data['automatic_subs']
+                    for sub in active_subs:
+                        self.current_subs.append([sub['element_in'], sub['element_out']])
+                    gameWeek_picks = picks_data['picks']
+                    for player in gameWeek_picks:
+                        if player['is_captain']:
+                            self.current_captain = player['element']
+                            break
             except KeyError:
-                print("Skipping: The user {} created their team past GW{}".format(self.manager_name, gameweek))
+                print("Skipping: The user {} created their team past GW{}. "
+                      "Trying different week.".format(self.manager_name, gameweek))
                 continue
-            if gameweek == current_GW:
-                self.points_on_bench_in_pastGW = picks_data['entry_history']['points_on_bench']
-            # Extract upcoming gameWeek data ...
-            # This includes the substitutions made and captain used!
-            elif gameweek == upcoming_GW:
-                active_subs = picks_data['automatic_subs']
-                for sub in active_subs:
-                    self.current_subs.append([sub['element_in'], sub['element_out']])
-                gameWeek_picks = picks_data['picks']
-                for player in gameWeek_picks:
-                    if player['is_captain']:
-                        self.current_captain = player['element']
-                        break
-            else:
-                print("The player has joined on a different week!")
 
 
 class ClassicLeague:

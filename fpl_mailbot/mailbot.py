@@ -44,7 +44,7 @@ def json_extract(json_object, keys):
 
 def gmail_authenticate():
     import pickle
-    from os import path
+    from os import path, remove, getcwd
     from googleapiclient.discovery import build
     from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
@@ -58,7 +58,18 @@ def gmail_authenticate():
     # if there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            # if exception is thrown at this point, very likely
+            # that token has expired.
+            # therefore, remove old token and re-authenticate.
+            except Exception:
+                print("Error has occurred. Trying to remove token.pickle", getcwd())
+                if path.exists('token.pickle'):
+                    remove(path.join(getcwd(), 'token.pickle'))
+                    print("token.pickle has been removed successfully")
+                else:
+                    print("Unable to delete token.pickle. Try manually.")
         else:
             flow = InstalledAppFlow.from_client_secrets_file('./mail_data/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
@@ -69,8 +80,13 @@ def gmail_authenticate():
 
 
 def search_messages(service, query):
-    result = service.users().messages().list(userId='me', q=query).execute()
     messages = []
+    try:
+        result = service.users().messages().list(userId='me', q=query).execute()
+    except Exception as e:
+        print("Error: Unable to get the messages!")
+        print(e)
+        return messages
     if 'messages' in result:
         messages.extend(result['messages'])
     while 'nextPageToken' in result:
@@ -104,7 +120,6 @@ def parse_parts(service, parts, folder_name, message):
                 # if the email part is text plain
                 if data:
                     text = urlsafe_b64decode(data).decode()
-                    print(text)
             elif mimeType == "text/html":
                 # if the email part is an HTML content
                 # save the HTML file and optionally open it in the browser
@@ -113,22 +128,23 @@ def parse_parts(service, parts, folder_name, message):
                 filepath = path.join(folder_name, filename)
             else:
                 # attachment other than a plain text or HTML
-                for part_header in part_headers:
-                    part_header_name = part_header.get("name")
-                    part_header_value = part_header.get("value")
-                    if part_header_name == "Content-Disposition":
-                        if "attachment" in part_header_value:
-                            # we get the attachment ID
-                            # and make another request to get the attachment itself
-                            print("Saving the file:", filename, "size:", get_size_format(file_size))
-                            attachment_id = body.get("attachmentId")
-                            attachment = service.users().messages() \
-                                .attachments().get(id=attachment_id, userId='me', messageId=message['id']).execute()
-                            data = attachment.get("data")
-                            filepath = path.join(folder_name, filename)
-                            if data:
-                                with open(filepath, "wb") as f:
-                                    f.write(urlsafe_b64decode(data))
+                print("Unable to decode message that is not plain text/ HTML")
+                # for part_header in part_headers:
+                #     part_header_name = part_header.get("name")
+                #     part_header_value = part_header.get("value")
+                #     if part_header_name == "Content-Disposition":
+                #         if "attachment" in part_header_value:
+                #             # we get the attachment ID
+                #             # and make another request to get the attachment itself
+                #             print("Saving the file:", filename, "size:", get_size_format(file_size))
+                #             attachment_id = body.get("attachmentId")
+                #             attachment = service.users().messages() \
+                #                 .attachments().get(id=attachment_id, userId='me', messageId=message['id']).execute()
+                #             data = attachment.get("data")
+                #             filepath = path.join(folder_name, filename)
+                #             if data:
+                #                 with open(filepath, "wb") as f:
+                #                     f.write(urlsafe_b64decode(data))
 
 
 # utility functions
@@ -260,6 +276,7 @@ def check_update(bootstrap, fixtures, json_object):
     current_gw = bootstrap.get_current_gameweek()
     upcoming_gw = current_gw + 1
     time_to_final_gw_fixture = fixtures.get_time_to_final_kickoff()/86400.0
+    print(time_to_final_gw_fixture)
     has_reminded, has_newscast = False, False
     send_reminder, send_newsletter = False, False
     # extract info on whether, or not the reminder has been sent out to the
@@ -326,6 +343,7 @@ def read_newsletter_email_body(league, bootstrap, players):
                                                               justify='center',
                                                               float_format='{:.2f}'.format
                                                               )
+    mvp_managers = league.managers.get_most_improved_managers()
     mail_body = ''
     with open(path.join(getcwd(), 'mail_data', 'newsletter_body.txt'), 'r') as bod:
         for line in bod.readlines():
@@ -339,6 +357,8 @@ def read_newsletter_email_body(league, bootstrap, players):
                 line = line.replace("@mid_rec", top5_midfielders)
             if "@for_rec" in line:
                 line = line.replace("@for_rec", top5_forwards)
+            if "@mvp_week" in line:
+                line = line.replace("@mvp_week", mvp_managers)
             mail_body += line + "\n"
     return mail_body
 
@@ -408,11 +428,14 @@ def send_reminder_email(distribution_list, subject, html_body, files_attached):
 
 
 def load():
+    import logging
     from classic_league import BootStrap
     from classic_league import ClassicLeague
     from classic_league import Players
     from classic_league import Fixtures
     from os import getcwd, path
+    logger = logging.getLogger("FPL_Log")
+    logger.setLevel(5)
     json_path = path.join(getcwd(), 'mail_data/.league_data.json')
     json_object = read_from_json_file(json_path)
     manager_data = json_object['league_data'][0]['manager_data']
@@ -430,10 +453,15 @@ def load():
     upcoming_gw = current_gw + 1
     current_fixtures = Fixtures(current_gw, teams)
     upcoming_fixtures = Fixtures(upcoming_gw, teams)
+    # Check if anyone is remaining in distribution list ...
     if not distribution_list:
-        print("No one to send emails to...")
+        logger.warning("No one to send emails to...")
         overwrite_json(json_path, json_object)
-        exit(0)
+        return
+    # check if the game is being updated ...
+    if upcoming_fixtures.updated:
+        logger.warning("The FPL API is currently being updated ...")
+        return
     send_reminder, send_newsletter, days_to_deadline, days_to_final_game = check_update(bootstrap,
                                                                                         current_fixtures,
                                                                                         json_object
@@ -449,9 +477,10 @@ def load():
         attachments = ['./mail_data/images/Banner.png']
         send_reminder_email(distribution_list, subject, reminder_email_body, attachments)
     else:
-        print("It's not yet time to sent reminder email! Days to deadline: {}.".format(days_to_deadline))
+        logging.log(5, "It's not yet time to sent reminder email! Days to deadline: {}.".format(days_to_deadline))
     # Check if newsletter should be sent to the managers
     if send_newsletter:
+        logger.log(5, "Trying to send out the newsletter.")
         # Only try loading league if it has not been loaded in previous step.
         if league == "":
             league = ClassicLeague(1026637, 'Jacobs FPL S4')
@@ -462,19 +491,23 @@ def load():
         attachments = ['./mail_data/images/Newsletter_Banner.png']
         send_reminder_email(distribution_list, subject, newsletter_body, attachments)
     else:
-        print("It's not yet time to sent newsletter email! "
-              "Days to/since final GW fixture: {}".format(days_to_final_game))
+        logger.log(5, "It's not yet time to sent newsletter email! "
+                     "Days to final GW fixture: {}".format(days_to_final_game)
+                     )
     overwrite_json(json_path, json_object)
 
 def main():
+    import logging
     from time import sleep
-    sleep_time = (0.5*24.0*60.0*60.0)  # Sleep for 1/2 day
+    sleep_time = (0.5*60.0*60.0)  # Sleep for 30 minutes
+    logger = logging.getLogger("FPL_Log")
+    logger.setLevel(5)
     while True:
         # Execute main ...
         load()
+        log_msg = "Sleeping for {} h now.".format(sleep_time/3600.0)
+        logger.log(5, log_msg)
         sleep(sleep_time)
-
 
 if __name__ == "__main__":
     main()
-
