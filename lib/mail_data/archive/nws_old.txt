@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="https://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <!—[if gte mso 9]>
+        <xml>
+            <o:OfficeDocumentSettings>
+            <o:AllowPNG/>
+            </o:OfficeDocumentSettings>
+        </xml>
+    <![endif]—>
+    <meta http–equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http–equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 ">
+    <meta name="format-detection" content="telephone=no">
+    <meta charset="UTF-8">
+    <meta name="x-apple-disable-message-reformatting">
+    <title></title>
+    <!—[if !mso]><!—>
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800" rel="stylesheet">
+    <!—<![endif]—>
+    <style>
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-text-size-adjust: 100% !important;
+            -ms-text-size-adjust: 100% !important;
+            -webkit-font-smoothing: antialiased !important;
+        }
+        table.main{
+           width:100%;
+           border-collapse:collapse;
+           border: none;
+           background:#caf3fa;
+           text-align: center;
+        }
+        table.main tr{
+            width: 700px;
+            border: none;
+            border-collapse: collapse;
+        }
+        table.main td{
+            width: 700px;
+            border: none;
+            border-collapse: collapse;
+        }
+        table.dataframe{
+            font-size: 8pt;
+            font-family: Arial;
+            color:white;
+            border-collapse:collapse;
+            background:black;
+            table-layout : fixed;
+        }
+        table.dataframe tr{
+            border: 2px solid white;
+            border-collapse: collapse;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        table.dataframe td{
+            border: 2px solid white;
+            border-collapse: collapse;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        table.dataframe th{
+            border: 2px solid white;
+            border-collapse: collapse;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        u + .em_body .em_full_wrap {
+            width: 100% !important;
+            width: 100vw !important;
+        }
+    </style>
+</head>
+</html>
+<body class="em_body" style="margin:0px; padding:0px;" bgcolor="#efefef">
+    <table class="main">
+        <tr>
+            <td style="font-family:'Open Sans', Arial, sans-serif; font-size:12px; line-height:16px; background: #caf3fa; color:black; padding-top:6px; padding-bottom:6px;" valign="top" align="center">
+                Support our Charity! | <a href="https://www.savethechildren.org.uk/what-we-do/child-poverty/uk-child-poverty" target="_blank" style="color:#0d1121; text-decoration:underline;">Find out more!</a>
+            </td>
+        </tr>
+        <tr>
+            <td style="background: black; ">
+               <img src="cid:Newsletter_Banner.png"/ width="700px" border="0" height="170px"></img>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <p>
+                    Presented below is the league table, including the chips used and points that the manager
+                    has benched in the past week. This should aid selection of the upcoming team and provide
+                    some info on your opponents. If you would like more details to be presented here, please
+                    reply to this email with feature you would like to get included in the future updates.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @players_table
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <h2>
+                    Goalkeepers worth transferring
+                </h2>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @gk_rec
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <h2>
+                    Defenders worth transferring
+                </h2>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @def_rec
+            </td>
+        </tr>
+         <tr>
+            <td>
+                <h2>
+                    Midfielders worth transferring
+                </h2>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @mid_rec
+            </td>
+        </tr>
+         <tr>
+            <td>
+                <h2>
+                    Forwards worth transferring
+                </h2>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @for_rec
+            </td>
+        </tr>
+        <tr>
+            <td style="font-family:'Open Sans', Arial, sans-serif; font-size:11px; line-height:16px; background: black; color:white; padding-top:6px; padding-bottom:6px;" valign="top" align="center">© 2022 Gloucester FPL Bot
+               <br> If you do not wish to receive any further emails, please <a href="mailto:jacobsfantasypremierleague@gmail.com?subject=Unsubscribe&body=I%20no%20longer%20want%20to%20subscribe." target="_blank" style="text-decoration:none; color:#999999;"><u>unsubscribe</u></a></br>
+            </td>
+        </tr>
+    </table>
+</body>
