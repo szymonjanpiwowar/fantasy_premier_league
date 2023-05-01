@@ -129,22 +129,6 @@ def parse_parts(service, parts, folder_name, message):
             else:
                 # attachment other than a plain text or HTML
                 print("Unable to decode message that is not plain text/ HTML")
-                # for part_header in part_headers:
-                #     part_header_name = part_header.get("name")
-                #     part_header_value = part_header.get("value")
-                #     if part_header_name == "Content-Disposition":
-                #         if "attachment" in part_header_value:
-                #             # we get the attachment ID
-                #             # and make another request to get the attachment itself
-                #             print("Saving the file:", filename, "size:", get_size_format(file_size))
-                #             attachment_id = body.get("attachmentId")
-                #             attachment = service.users().messages() \
-                #                 .attachments().get(id=attachment_id, userId='me', messageId=message['id']).execute()
-                #             data = attachment.get("data")
-                #             filepath = path.join(folder_name, filename)
-                #             if data:
-                #                 with open(filepath, "wb") as f:
-                #                     f.write(urlsafe_b64decode(data))
 
 
 # utility functions
@@ -276,7 +260,6 @@ def check_update(bootstrap, fixtures, json_object):
     current_gw = bootstrap.get_current_gameweek()
     upcoming_gw = current_gw + 1
     time_to_final_gw_fixture = fixtures.get_time_to_final_kickoff()/86400.0
-    print(time_to_final_gw_fixture)
     has_reminded, has_newscast = False, False
     send_reminder, send_newsletter = False, False
     # extract info on whether, or not the reminder has been sent out to the
@@ -343,7 +326,7 @@ def read_newsletter_email_body(league, bootstrap, players):
                                                               justify='center',
                                                               float_format='{:.2f}'.format
                                                               )
-    mvp_managers = league.managers.get_most_improved_managers()
+    mvp_managers = league.managers.get_most_val_managers()
     mail_body = ''
     with open(path.join(getcwd(), 'mail_data', 'newsletter_body.txt'), 'r') as bod:
         for line in bod.readlines():
@@ -469,6 +452,7 @@ def load():
     hours_to_deadline = round(days_to_deadline * 24.0, 0)
     # Check if update email should be sent out to the managers
     if send_reminder:
+        logger.log(5, "Trying to send out the reminder email.")
         league = ClassicLeague(1026637, 'Jacobs FPL S4')
         reminder_email_body = read_email_body(league)
         subject = "REMINDER - Only {} h Remain! Update your team for the Gameweek #{}!".format(hours_to_deadline,

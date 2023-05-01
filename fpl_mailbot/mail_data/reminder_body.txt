@@ -141,13 +141,10 @@ width: 100vw !important;
 <td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">You can make your substitutions by following this <a href="https://fantasy.premierleague.com/transfers">link</a>.</td>
 </tr>
 <tr>
-<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">@league_msg</td>
+<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">We are slowly approaching the end of the season!</span></td>
 </tr>
 <tr>
-<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">Managers Registered: <span style="color: #00ff00">@registered</span></td>
-</tr>
-<tr>
-<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">Invite your friends at work to join! Name: <span style="color: #00ff00">Jacobs FPL S4</span>, Code: <span style="color: #00ff00">wmsgqj </span></td>
+<td style="font-family:'Open Sans', Arial, sans-serif; font-size:18px; line-height:22px; color:#ffffff; letter-spacing:2px; padding-bottom:2px;" valign="top" align="center">The details on the awards will be released soon!</span></td>
 </tr>
 <tr>
 <td class="em_h20" style="font-size:0px; line-height:0px; height:10px;" height="10">&nbsp;</td>

@@ -15,7 +15,7 @@ class Fixtures:
         url = "https://fantasy.premierleague.com/api/fixtures?event={}".format(self.gameweek)
         response = requests.get(url)
         extracted_fixture_data = json.loads(response.content)
-        if "updated" in extracted_fixture_data:
+        if "updated" in extracted_fixture_data or not extracted_fixture_data:
             self.updated = True
             return
         data, columns = [], ['id', 'FDR', 'kick_off_time']
@@ -28,7 +28,6 @@ class Fixtures:
             data = DataFrame(data, columns=columns).sort_values(by='id', ascending=True)
             data['team_name'] = data.id.map(self.teams.set_index('id').name)
             self.fixture_data = data
-
         except Exception as e:
             self.fixture_data = DataFrame()
 
@@ -39,6 +38,7 @@ class Fixtures:
         if self.updated:
             return 1E9
         kick_offs = self.fixture_data.sort_values(by='kick_off_time', ascending=False)
+        print(kick_offs)
         return kick_offs['kick_off_time'].iloc[0].timestamp() - datetime.now().timestamp()
 
 
@@ -80,9 +80,12 @@ class Players:
         gwc = self.currentGW / 38.0
         players = []
         for player in self.bootstrap['elements']:
+            print(player)
             today_ts = datetime.today().timestamp()
             player_id = player['id']
-            fdr = float(upcoming_fixture_data.loc[upcoming_fixture_data['id'] == player['team']]['FDR'])
+            fdr = upcoming_fixture_data.loc[upcoming_fixture_data['id'] == player['team']]['FDR']
+            if fdr.empty:
+                continue
             # setup position specific points ...
             url = "https://fantasy.premierleague.com/api/element-summary/{}/".format(player_id)
             response = requests.get(url)
@@ -173,51 +176,54 @@ class Players:
             pm00 = 0.0 if isnan(k00) else k00
             pm60 = 0.0 if isnan(k60) else k60
             # TODO: Create a loop that deals with this ...
-            try:
-                xPg = points_per_goal * (np.dot(player_data['goals_scored'], weightM)
-                                         + gwc * (3.0 - fdr) * stdev(player_data['goals_scored']))
-            except StatisticsError:
-                xPg = points_per_goal * (np.dot(player_data['goals_scored'], weightM))
-            try:
-                xPa = points_per_assist * (np.dot(player_data['assists'], weightM)
-                                           + gwc * (3.0 - fdr) * stdev(player_data['assists']))
-            except StatisticsError:
-                xPa = points_per_assist * (np.dot(player_data['assists'], weightM))
-            try:
-                xCs = points_per_clean_sheet * (np.dot(player_data['clean_sheets'], weightM)
-                                                + gwc * (3.0 - fdr) * stdev(player_data['clean_sheets']))
-            except StatisticsError:
-                xCs = points_per_clean_sheet * (np.dot(player_data['clean_sheets'], weightM))
-            try:
-                xGc = 0.5 * points_per_2conceded_goals * (np.dot(player_data['goals_conceded'], weightM)
-                                                          + gwc * (fdr - 3.0) * stdev(player_data['goals_conceded']))
-            except StatisticsError:
-                xGc = 0.5 * points_per_2conceded_goals * (np.dot(player_data['goals_conceded'], weightM))
-            try:
-                xYc = points_per_yc * (np.dot(player_data['yellow_cards'], weightM)
-                                       + gwc * (fdr - 3.0) * stdev(player_data['yellow_cards']))
-            except StatisticsError:
-                xYc = points_per_yc * (np.dot(player_data['yellow_cards'], weightM))
-            try:
-                xRc = points_per_rc * (np.dot(player_data['red_cards'], weightM)
-                                       + gwc * (fdr - 3.0) * stdev(player_data['red_cards']))
-            except StatisticsError:
-                xRc = points_per_rc * (np.dot(player_data['red_cards'], weightM))
-            try:
-                xSv = points_per_3saves * ((np.dot(player_data['saves'], weightM)
-                                            + gwc * (fdr - 3.0) * stdev(player_data['saves'])) / 3.0)
-            except StatisticsError:
-                xSv = points_per_3saves * ((np.dot(player_data['saves'], weightM)) / 3.0)
-            xOg = np.dot(player_data['own_goals'], weightM) * points_per_og
-            xBo = np.dot(player_data['bonus'], weightM)
-            xPs = np.dot(player_data['penalties_saved'], weightM) * points_per_saved_pen
-            xPm = np.dot(player_data['penalties_missed'], weightM) * points_per_missed_pen
-            player_points['xPoints'] = playing_chance * (xPg + xPa + xCs +
-                                                         xGc + xOg + xBo + xPs + xPm +
-                                                         xYc + xRc + xSv +
-                                                         pm00 + pm60
-                                                         )
+            for dR in fdr:
+                print(dR)
+                try:
+                    xPg = points_per_goal * (np.dot(player_data['goals_scored'], weightM)
+                                             + gwc * (3.0 - dR) * stdev(player_data['goals_scored']))
+                except StatisticsError:
+                    xPg = points_per_goal * (np.dot(player_data['goals_scored'], weightM))
+                try:
+                    xPa = points_per_assist * (np.dot(player_data['assists'], weightM)
+                                               + gwc * (3.0 - dR) * stdev(player_data['assists']))
+                except StatisticsError:
+                    xPa = points_per_assist * (np.dot(player_data['assists'], weightM))
+                try:
+                    xCs = points_per_clean_sheet * (np.dot(player_data['clean_sheets'], weightM)
+                                                    + gwc * (3.0 - dR) * stdev(player_data['clean_sheets']))
+                except StatisticsError:
+                    xCs = points_per_clean_sheet * (np.dot(player_data['clean_sheets'], weightM))
+                try:
+                    xGc = 0.5 * points_per_2conceded_goals * (np.dot(player_data['goals_conceded'], weightM)
+                                                              + gwc * (dR - 3.0) * stdev(player_data['goals_conceded']))
+                except StatisticsError:
+                    xGc = 0.5 * points_per_2conceded_goals * (np.dot(player_data['goals_conceded'], weightM))
+                try:
+                    xYc = points_per_yc * (np.dot(player_data['yellow_cards'], weightM)
+                                           + gwc * (dR - 3.0) * stdev(player_data['yellow_cards']))
+                except StatisticsError:
+                    xYc = points_per_yc * (np.dot(player_data['yellow_cards'], weightM))
+                try:
+                    xRc = points_per_rc * (np.dot(player_data['red_cards'], weightM)
+                                           + gwc * (dR - 3.0) * stdev(player_data['red_cards']))
+                except StatisticsError:
+                    xRc = points_per_rc * (np.dot(player_data['red_cards'], weightM))
+                try:
+                    xSv = points_per_3saves * ((np.dot(player_data['saves'], weightM)
+                                                + gwc * (dR - 3.0) * stdev(player_data['saves'])) / 3.0)
+                except StatisticsError:
+                    xSv = points_per_3saves * ((np.dot(player_data['saves'], weightM)) / 3.0)
+                xOg = np.dot(player_data['own_goals'], weightM) * points_per_og
+                xBo = np.dot(player_data['bonus'], weightM)
+                xPs = np.dot(player_data['penalties_saved'], weightM) * points_per_saved_pen
+                xPm = np.dot(player_data['penalties_missed'], weightM) * points_per_missed_pen
+                player_points['xPoints'] += playing_chance * (xPg + xPa + xCs +
+                                                             xGc + xOg + xBo + xPs + xPm +
+                                                             xYc + xRc + xSv +
+                                                             pm00 + pm60
+                                                             )
             # Points scored per pound spent.
+            print(player_id, player_points['xPoints'])
             player_points['cost_to_points'] = player_points['xPoints'] / player_data['value']
             players.append(player_points)
         self.players = pd.DataFrame(players)
@@ -295,7 +301,8 @@ class Managers:
                 columns.append("Name")
                 for chip_header in manager.chips_used.keys():
                     columns.append(map_chip_name[chip_header])
-                columns.append("Points")
+                columns.append("Event Points")
+                columns.append("Total Points")
                 columns.append("To leader")
                 columns.append("Points Benched")
                 columns.append("Transfer Penalty Points")
@@ -312,6 +319,7 @@ class Managers:
             row.append(manager.manager_name)
             for chip in manager.chips_used.values():
                 row.append(chip)
+            row.append(manager.current_gw_points)
             row.append(manager.team_points)
             distance_to_leader = manager.team_points - self.top_points
             row.append(distance_to_leader)
@@ -319,9 +327,9 @@ class Managers:
             row.append(manager.total_penalty_points)
             table.append(row)
             row = []
-        return DataFrame(table, columns=columns).sort_values(by='Points', ascending=False)
+        return DataFrame(table, columns=columns).sort_values(by='Total Points', ascending=False)
 
-    def get_most_improved_managers(self):
+    def get_most_val_managers(self):
         highest_score_of_gw = -1
         highest_scoring_managers = []
         for manager in self.managers:
@@ -477,3 +485,7 @@ class ClassicLeague:
         add_managers(league_data['new_entries']['results'], True)
         # 2. Add managers from standings
         add_managers(league_data['standings']['results'], False)
+
+
+if __name__ == "__main__":
+    pl = Players(BootStrap())
